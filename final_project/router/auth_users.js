@@ -7,14 +7,30 @@ let users = [];
 
 const isValid = (username)=>{ //returns boolean
 //write code to check is the username is valid
-  return users.some(user => user.username === username);
+let userswithsamename = users.filter((user) => {
+    return user.username === username;
+});
+// Return true if any user with the same username is found, otherwise false
+if (userswithsamename.length > 0) {
+    return true;
+} else {
+    return false;
+}
 
 }
 
 const authenticatedUser = (username,password)=>{ //returns boolean
 //write code to check if username and password match the one we have in records.
-  return users.some(user => user.username === username && user.password === password);
-
+    // Filter the users array for any user with the same username and password
+    let validusers = users.filter((user) => {
+        return (user.username === username && user.password === password);
+    });
+    // Return true if any valid user is found, otherwise false
+    if (validusers.length > 0) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 //only registered users can login
@@ -47,26 +63,47 @@ regd_users.post("/login", (req,res) => {
 
 // Add a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
-    // Extract the ISBN from the request parameters
-    const isbn = req.params.isbn;
-    // Extract the review from the request body
-    const { review, username } = req.body;
-  
-    // Check if the book exists
-    const book = books.find(b => b.isbn === isbn);
-    if (!book) {
-      return res.status(404).json({ message: "Book not found" });
+    const isbn = req.params.isbn; // Get the ISBN from request parameters
+    const username = req.session.authorization.username; // Get the logged-in username from session
+
+    let book = books[isbn];  // Retrieve book object associated with isbn
+    if (book) {  // Check if the book exists
+        const review = req.body.review; // Get the review from request body
+
+        // Check if review is provided
+        if (!review) {
+            return res.status(400).send("Review text is required.");
+        }
+
+        // Initialize reviews array if it doesn't exist
+        if (!book.reviews) {
+            book.reviews = [];
+        }
+
+        // Flag to track if the user's review was updated
+        let reviewUpdated = false;
+
+        // Iterate through reviews to check if the user has already reviewed
+        for (let i = 0; i < book.reviews.length; i++) {
+            if (book.reviews[i].username === username) {
+                // If review exists, update it
+                book.reviews[i].review = review;
+                reviewUpdated = true;
+                break; // Exit the loop once the review is updated
+            }
+        }
+
+        if (reviewUpdated) {
+            res.send(`Review updated for the book with ISBN ${isbn}.`);
+        } else {
+            // If review doesn't exist, add a new review
+            book.reviews.push({ username, review });
+            res.send(`Review added for the book with ISBN ${isbn}.`);
+        }
+    } else {
+        // Respond if the book with specified ISBN is not found
+        res.send("Unable to find book!");
     }
-  
-    // Initialize reviews array if it doesn't exist
-    if (!book.reviews) {
-      book.reviews = [];
-    }
-  
-    // Add the review to the book's reviews array
-    book.reviews.push({ username, review });
-    
-    return res.status(200).json({ message: "Review added successfully", reviews: book.reviews });
   });
 
 
