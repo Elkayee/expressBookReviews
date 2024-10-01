@@ -1,5 +1,4 @@
 const express = require('express');
-const axios = require('axios'); // Import axios for HTTP requests
 
 let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
@@ -41,56 +40,88 @@ public_users.post("/register", (req,res) => {
 });
 
 // Get the book list available in the shop
-public_users.get('/',function (req, res) {
-    res.send(JSON.stringify(books, null, 4));; // Implemented: return all books
-
+public_users.get('/', async function (req, res) {
+    try {
+        // Convert the books object to a JSON string with 4 spaces indentation
+        const formattedBooks = JSON.stringify(books, null, 4);
+        
+        // Send the formatted JSON response
+        res.send(formattedBooks); // Send the formatted string response
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching book list" });
+    }
 });
 
 // Get book details based on ISBN
-public_users.get('/isbn/:isbn',function (req, res) {
-    const isbn = req.params.isbn;
-res.send(books[isbn]);
- });
-  
+public_users.get('/isbn/:isbn', async function (req, res) {
+    const isbn = req.params.isbn; // Get the ISBN from request parameters
+
+    // Check if the book exists
+    const book = books[isbn];
+
+    if (book) {
+        // If the book exists, send it as a JSON response
+        return res.json(book); // Send book details directly as JSON
+    } else {
+        // If the book does not exist, send a 404 response
+        return res.status(404).json({ message: "Book not found" });
+    }
+});
+
+
 // Get book details based on author
-public_users.get('/author/:author',function (req, res) {
+public_users.get('/author/:author', async function (req, res) {
     const author = req.params.author; // Get the author from request parameters
     const results = []; // Array to hold books by the author
 
-    // Iterate through the books object
-    for (let key in books) {
-        if (books[key].author.toLowerCase() === author.toLowerCase()) {
-            results.push(books[key]); // Add the matching book to results
+    // Simulating an asynchronous operation (like a database call or external API call)
+    await new Promise((resolve) => {
+        // Iterate through the books object
+        for (let key in books) {
+            if (books[key].author.toLowerCase() === author.toLowerCase()) {
+                results.push(books[key]); // Add the matching book to results
+            }
         }
-    }
+        resolve(); // Resolve the promise
+    });
 
     // Check if any books were found by the author
     if (results.length > 0) {
-        return res.send(results); // Send found books as a response
+        return res.json(results); // Send found books as a response
     } else {
-        return res.send({ message: "No books found by this author" }); // Send not found message
+        return res.status(404).json({ message: "No books found by this author" }); // Send not found message
     }
 });
+
+
+
 
 // Get all books based on title
-public_users.get('/title/:title',function (req, res) {
+public_users.get('/title/:title', async (req, res) => {
     const title = req.params.title; // Get the title from request parameters
-    const results = []; // Array to hold books with the matching title
+    const results = []; // Array to hold books by the title
 
-    // Iterate through the books object
-    for (let key in books) {
-        if (books[key].title.toLowerCase() === title.toLowerCase()) {
-            results.push(books[key]); // Add the matching book to results
+    // Simulating an asynchronous operation (like a database call or external API call)
+    await new Promise((resolve) => {
+        // Iterate through the books object
+        for (let key in books) {
+            if (books[key].title.toLowerCase() === title.toLowerCase()) {
+                results.push(books[key]); // Add the matching book to results
+            }
         }
-    }
+        resolve(); // Resolve the promise
+    });
 
-    // Check if any books were found with the given title
+    // Check if any books were found by the title
     if (results.length > 0) {
-        return res.send(results); // Send found books as a response
+        return res.json(results); // Send found books as a response
     } else {
-        return res.send({ message: "No books found with this title" }); // Send not found message
+        return res.status(404).json({ message: "No books found by this title" }); // Send not found message
     }
 });
+
+
 
 //  Get book review
 public_users.get('/review/:isbn',function (req, res) {
