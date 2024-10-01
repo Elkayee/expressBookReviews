@@ -62,80 +62,71 @@ regd_users.post("/login", (req,res) => {
 });
 
 // Add a book review
+// Add or update a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
     const isbn = req.params.isbn; // Get the ISBN from request parameters
-    const username = req.session.authorization.username; // Get the logged-in username from session
+    const reviewText = req.body.review; // Extract review from request body
 
-    let book = books[isbn];  // Retrieve book object associated with isbn
-    if (book) {  // Check if the book exists
-        const review = req.body.review; // Get the review from request body
-
-        // Check if review is provided
-        if (!review) {
-            return res.status(400).send("Review text is required.");
-        }
-
-        // Initialize reviews array if it doesn't exist
-        if (!book.reviews) {
-            book.reviews = [];
-        }
-
-        // Flag to track if the user's review was updated
-        let reviewUpdated = false;
-
-        // Iterate through reviews to check if the user has already reviewed
-        for (let i = 0; i < book.reviews.length; i++) {
-            if (book.reviews[i].username === username) {
-                // If review exists, update it
-                book.reviews[i].review = review;
-                reviewUpdated = true;
-                break; // Exit the loop once the review is updated
-            }
-        }
-
-        if (reviewUpdated) {
-            res.send(`Review updated for the book with ISBN ${isbn}.`);
-        } else {
-            // If review doesn't exist, add a new review
-            book.reviews.push({ username, review });
-            res.send(`Review added for the book with ISBN ${isbn}.`);
-        }
-    } else {
-        // Respond if the book with specified ISBN is not found
-        res.send("Unable to find book!");
+    // Check if review text is provided
+    if (!reviewText) {
+        return res.status(400).json({ message: "Review text is required." });
     }
-  });
+
+    // Check if user is authenticated
+    if (!req.session.authorization) {
+        return res.status(403).json({ message: "User not authenticated." });
+    }
+
+    const accessToken = req.session.authorization.accessToken; // Get access token from session
+
+    try {
+        // Verify token to extract the username
+        const decoded = jwt.verify(accessToken, 'access');
+        const username = decoded.data ? req.session.authorization.username : null;
+
+        // Check if book exists
+        if (books[isbn]) {
+            // Update the review for the user
+            books[isbn].reviews[username] = {
+                reviewText: reviewText,
+               
+            };
+            return res.status(200).json({ message: "Review added/updated successfully." });
+        } else {
+            return res.status(404).json({ message: "Book not found." });
+        }
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token." });
+    }
+});
 
 
   // Delete a book review
 regd_users.delete("/auth/review/:isbn", (req, res) => {
-    // Extract the ISBN from the request parameters
-    const isbn = req.params.isbn;
-    // Extract the username from the request (assume it is set in the token)
-    const { username } = req.body;
-  
+    const isbn = req.params.isbn; // Get the ISBN from request parameters
+
+    // Check if the user is authenticated
+    if (!req.session.authorization) {
+        return res.status(403).json({ message: "User not authenticated." });
+    }
+
+    const username = req.session.authorization.username; // Get the username from the session
+
     // Check if the book exists
-    const book = books.find(b => b.isbn === isbn);
-    if (!book) {
-      return res.status(404).json({ message: "Book not found" });
+    if (books[isbn]) {
+        // Check if the user has a review for this book
+        if (books[isbn].reviews[username]) {
+            // Delete the review for the user
+            delete books[isbn].reviews[username];
+            return res.status(200).json({ message: "Review deleted successfully." });
+        } else {
+            return res.status(404).json({ message: "No review found for this user." });
+        }
+    } else {
+        return res.status(404).json({ message: "Book not found." });
     }
-  
-    // Check if the reviews array exists
-    if (!book.reviews || book.reviews.length === 0) {
-      return res.status(404).json({ message: "No reviews found for this book" });
-    }
-  
-    // Filter out the review that belongs to the current user
-    const initialReviewCount = book.reviews.length;
-    book.reviews = book.reviews.filter(review => review.username !== username);
-  
-    // Check if a review was deleted
-    if (book.reviews.length === initialReviewCount) {
-      return res.status(403).json({ message: "You can only delete your own reviews" });
-    }
-  
-    return res.status(200).json({ message: "Review deleted successfully", reviews: book.reviews });
-  });
+});
+
   
 module.exports.authenticated = regd_users;
 module.exports.isValid = isValid;
